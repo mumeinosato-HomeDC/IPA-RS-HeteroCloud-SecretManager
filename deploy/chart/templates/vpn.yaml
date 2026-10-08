@@ -8,20 +8,49 @@ spec:
   parentRefs:
     - group: gateway.networking.k8s.io
       kind: Gateway
-      name: openbao-vpn
-      namespace: openbao
-      sectionName: http
+      name: {{ .Values.vpn.parentRef.name | quote }}
+      namespace: {{ .Values.vpn.parentRef.namespace | quote }}
+      sectionName: {{ .Values.vpn.parentRef.sectionName | quote }}
   hostnames:
     - {{ .Values.vpn.hostname | quote }}
+    {{- if and .Values.vpn.internalHostname (ne .Values.vpn.internalHostname .Values.vpn.hostname) }}
     - {{ .Values.vpn.internalHostname | quote }}
+    {{- end }}
   rules:
     - matches:
         - path:
             type: PathPrefix
             value: /v1
       backendRefs:
+        {{- if eq .Values.vpn.backend.mode "envoyBackend" }}
         - group: gateway.envoyproxy.io
           kind: Backend
           name: openbao-api
           weight: 1
+        {{- else }}
+        - name: openbao-active
+          port: 8200
+          weight: 1
+        {{- end }}
+{{- if eq .Values.vpn.backend.mode "service" }}
+---
+# Standard Gateway API way to re-encrypt to the active OpenBao voter; the CA
+# bundle ConfigMap is provisioned by the operator (see docs/LAB.md).
+apiVersion: gateway.networking.k8s.io/v1alpha3
+kind: BackendTLSPolicy
+metadata:
+  name: openbao-active
+  namespace: openbao
+spec:
+  targetRefs:
+    - group: ""
+      kind: Service
+      name: openbao-active
+  validation:
+    caCertificateRefs:
+      - group: ""
+        kind: ConfigMap
+        name: {{ required "vpn.backend.caConfigMapName must be set for service mode" .Values.vpn.backend.caConfigMapName | quote }}
+    hostname: openbao-active.openbao.svc.cluster.local
+{{- end }}
 {{- end }}

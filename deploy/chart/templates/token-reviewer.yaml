@@ -1,0 +1,16 @@
+{{- if and .Values.tokenReviewer.create (not .Values.backup.enabled) }}
+# Kubernetes auth needs TokenReview. The snapshot template creates this same
+# binding when backups are enabled; this switch covers deployments without them.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: openbao-token-reviewer
+subjects:
+  - kind: ServiceAccount
+    name: openbao
+    namespace: openbao
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:auth-delegator
+{{- end }}

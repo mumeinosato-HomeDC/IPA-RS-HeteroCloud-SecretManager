@@ -219,12 +219,16 @@ path "sys/storage/raft/snapshot" { capabilities = ["read"] }
 '''})
 
     ensure_auth(api, 'oidc', 'oidc')
-    api.request('POST', 'auth/oidc/config', {
+    oidc_config = {
         'oidc_discovery_url': issuer,
         'oidc_client_id': config['client_id'],
         'oidc_client_secret': config['client_secret'],
         'default_role': 'users',
-    })
+    }
+    if config.get('oidc_discovery_ca_pem'):
+        # Private-CA identity providers (e.g. an internal Keycloak).
+        oidc_config['oidc_discovery_ca_pem'] = config['oidc_discovery_ca_pem']
+    api.request('POST', 'auth/oidc/config', oidc_config)
     api.request('POST', 'auth/oidc/role/users', {
         'role_type': 'oidc', 'user_claim': 'sub',
         'oidc_scopes': ['openid', 'profile', 'email'],
@@ -270,10 +274,12 @@ path "sys/storage/raft/snapshot" { capabilities = ["read"] }
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--kubeconfig', type=Path, required=True)
-    parser.add_argument('--ssh-key', type=Path, required=True)
+    parser.add_argument('--ssh-key', type=Path,
+                        help='Age identity fallback for the init artifact (unused with an owner/admin token)')
     parser.add_argument('--recovery-identity', type=Path,
                         help='Dedicated age identity for the encrypted init artifact')
-    parser.add_argument('--recovery-dir', type=Path, required=True)
+    parser.add_argument('--recovery-dir', type=Path,
+                        help='Directory holding openbao-init.json.age (not needed with an admin token)')
     parser.add_argument('--public-origin', required=True)
     parser.add_argument('--legacy-origin')
     parser.add_argument('--restore-auth-only', action='store_true',
@@ -293,7 +299,7 @@ def main():
     resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
     os.umask(0o077)
     config = None if args.restore_auth_only or args.flash_auth_only else json.load(sys.stdin)
-    encrypted = args.recovery_dir / 'openbao-init.json.age'
+    encrypted = args.recovery_dir / 'openbao-init.json.age' if args.recovery_dir else None
     if args.admin_token_stdin:
         admin_token = sys.stdin.readline().rstrip('\r\n')
         if not admin_token:
@@ -303,6 +309,8 @@ def main():
     if config is not None:
         admin_token = admin_token or config.pop('admin_token', None)
     if not admin_token:
+        if encrypted is None or not (args.recovery_identity or args.ssh_key):
+            raise RuntimeError('OpenBao admin token, or --recovery-dir with an age identity, is required')
         admin_token = json.loads(command(['age', '-d', '-i',
                                           str(args.recovery_identity or args.ssh_key),
                                           str(encrypted)]))['root_token']
