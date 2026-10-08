@@ -1,0 +1,53 @@
+# Single-host lab overlay: k3s, local-path storage, a private CA and an
+# existing Envoy Gateway named "hc". See docs/LAB.md.
+namespace:
+  create: false
+pki:
+  certManager:
+    enabled: false
+storage:
+  localPersistentVolumes:
+    enabled: false
+backup:
+  enabled: false
+vpn:
+  enabled: true
+  parentRef:
+    name: hc
+    namespace: envoy-gateway-system
+    sectionName: https
+  hostname: secrets.heterocloud.hetero.internal
+  internalHostname: ""
+  backend:
+    mode: service
+    caConfigMapName: openbao-server-ca
+openbao:
+  injector:
+    replicas: 1
+    nodeSelector: null
+    externalBaoAddr: https://secrets.heterocloud.hetero.internal
+    extraEnvironmentVars:
+      AGENT_INJECT_VAULT_CACERT_BYTES: |-
+          -----BEGIN CERTIFICATE-----
+          MIIBnzCCAUWgAwIBAgIUJ0GUJHTx/KxoYUVHiDoKsxRdfKwwCgYIKoZIzj0EAwIw
+          HTEbMBkGA1UEAwwSSGV0ZXJvIEludGVybmFsIENBMB4XDTI2MTAwODA5MjAyMFoX
+          DTM2MTAwNTA5MjAyMFowHTEbMBkGA1UEAwwSSGV0ZXJvIEludGVybmFsIENBMFkw
+          EwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEESbPsQdBTzZnecTEcFlNDDz1U66/UE3s
+          F7V9nUA5G2IQ5S1Dlp0IeOYq/zzANTx0r3hjrN70LESoUfq4f1DlXKNjMGEwHQYD
+          VR0OBBYEFF+Fho1D/UzjdPLitrd+DpvDEbQ7MB8GA1UdIwQYMBaAFF+Fho1D/Uzj
+          dPLitrd+DpvDEbQ7MA8GA1UdEwEB/wQFMAMBAf8wDgYDVR0PAQH/BAQDAgEGMAoG
+          CCqGSM49BAMCA0gAMEUCIQC5kKv1jpAmyQrKAok2R/xC1/XC97dk/g6dkFyG256B
+          1AIgA79oyYRS38D1W8YNd8n84OoD5QOMLl5T3qws7J/Mw08=
+          -----END CERTIFICATE-----
+  server:
+    nodeSelector: null
+    affinity: ""
+    dataStorage:
+      size: 5Gi
+      storageClass: local-path
+    ha:
+      disruptionBudget:
+        enabled: false
+    resources:
+      requests: {cpu: 100m, memory: 256Mi}
+      limits: {cpu: "1", memory: 1Gi}

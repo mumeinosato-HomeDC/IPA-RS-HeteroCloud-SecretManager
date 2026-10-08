@@ -147,8 +147,31 @@ openbao:
             }
           }
 
+namespace:
+  create: true
+
+pki:
+  # Set to false to supply the openbao-server-tls Secret (tls.crt, tls.key,
+  # ca.crt) yourself instead of using cert-manager.
+  certManager:
+    enabled: true
+
+storage:
+  # Disable to use a dynamic StorageClass instead of the pinned local PVs.
+  localPersistentVolumes:
+    enabled: true
+
 vpn:
   enabled: true
+  parentRef:
+    name: openbao-vpn
+    namespace: openbao
+    sectionName: http
+  backend:
+    # envoyBackend uses the Envoy Gateway Backend CRD; service uses a plain
+    # Service backendRef plus a BackendTLSPolicy.
+    mode: envoyBackend
+    caConfigMapName: ""
   hostname: secrets.heterocloud.mizuame.app
   internalHostname: secrets.heteronetwork.internal
 

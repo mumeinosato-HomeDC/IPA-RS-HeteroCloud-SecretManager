@@ -1,3 +1,4 @@
+{{- if and .Values.vpn.enabled (eq .Values.vpn.backend.mode "envoyBackend") }}
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: Backend
 metadata:
@@ -14,3 +15,4 @@ spec:
       - group: ''
         kind: Secret
         name: openbao-server-tls
+{{- end }}
