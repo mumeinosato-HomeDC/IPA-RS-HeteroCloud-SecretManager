@@ -13,7 +13,9 @@ backup:
 tokenReviewer:
   create: true
 vpn:
-  enabled: true
+  # Disabled: Flash workloads and the HeteroCloud API reach OpenBao through
+  # deploy/lab/host-proxy.yaml (NetworkPolicy ipBlock rules need a non-DNAT address).
+  enabled: false
   parentRef:
     name: hc
     namespace: envoy-gateway-system

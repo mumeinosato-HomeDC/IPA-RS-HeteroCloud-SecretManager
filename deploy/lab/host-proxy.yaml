@@ -1,0 +1,46 @@
+# TLS-passthrough L4 proxy on the node address so that NetworkPolicy ipBlock
+# rules (evaluated after DNAT) can allow Flash workloads and the HeteroCloud API
+# to reach OpenBao at a stable IP:443. Replace BIND_ADDRESS with the node IP.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: openbao-edge
+  labels:
+    pod-security.kubernetes.io/enforce: privileged
+---
+apiVersion: v1
+kind: ConfigMap
+metadata: { name: nginx-stream, namespace: openbao-edge }
+data:
+  nginx.conf: |
+    worker_processes 1;
+    pid /tmp/nginx.pid;
+    events { worker_connections 512; }
+    stream {
+      server {
+        listen BIND_ADDRESS:443;
+        proxy_pass openbao-active.openbao.svc.cluster.local:8200;
+        proxy_connect_timeout 5s;
+      }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: openbao-host-proxy, namespace: openbao-edge }
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector: { matchLabels: { app: openbao-host-proxy } }
+  template:
+    metadata: { labels: { app: openbao-host-proxy } }
+    spec:
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      containers:
+        - name: nginx
+          image: docker.io/library/nginx:1.29-alpine
+          command: ["nginx", "-g", "daemon off;", "-c", "/etc/nginx/stream/nginx.conf"]
+          securityContext: { capabilities: { add: [NET_BIND_SERVICE] } }
+          volumeMounts: [{ name: conf, mountPath: /etc/nginx/stream, readOnly: true }]
+          resources: { requests: { cpu: 10m, memory: 16Mi }, limits: { memory: 64Mi } }
+      volumes: [{ name: conf, configMap: { name: nginx-stream } }]
