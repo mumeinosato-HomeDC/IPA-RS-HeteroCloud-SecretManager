@@ -150,6 +150,9 @@ openbao:
 namespace:
   create: true
 
+tokenReviewer:
+  create: false
+
 pki:
   # Set to false to supply the openbao-server-tls Secret (tls.crt, tls.key,
   # ca.crt) yourself instead of using cert-manager.

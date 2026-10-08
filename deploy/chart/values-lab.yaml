@@ -10,6 +10,8 @@ storage:
     enabled: false
 backup:
   enabled: false
+tokenReviewer:
+  create: true
 vpn:
   enabled: true
   parentRef:
